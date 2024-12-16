@@ -1,7 +1,3 @@
-import sys
-import os
-# Thêm đường dẫn tới thư mục gốc (src)
-sys.path.append(os.path.abspath(os.path.join('..')))
 import utils
 
 import socket
@@ -65,6 +61,5 @@ class SocketClientUDP:
                 input()
                 break;
         
-s1 = SocketClientUDP()
-s1.connect_to_server("input.txt")
+
          
