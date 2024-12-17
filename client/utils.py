@@ -32,12 +32,52 @@ def setTextColor(color):
 
 # -----------------------UTILS FUNCTIONS FOR CONSOLE-----------------------#
 
+# -----------------------UTILS FUNCTIONS FOR MAIN-----------------------#
+
+
+def inputChoice():
+    # -----------------SETTINGS UP CONSOLE-----------------#
+    screenWidth = 80
+    screenHeigh = 25
+
+    TITLE = "SOCKET FILES TRANSFER"
+
+    clearScreen()
+
+    print(setTextColor("green"))
+    print(screenWidth * "-")
+    print(
+        "|"
+        + setTextColor("cyan")
+        + " " * ((screenWidth - len(TITLE)) // 2 - 1)
+        + TITLE
+        + " " * ((screenWidth - len(TITLE)) // 2 - 1)
+        + setTextColor("green")
+        + "|"
+    )
+    print(screenWidth * "-", end="")
+    print(setTextColor("white"))
+
+    print("0. Exit")
+    print("1. Download file from server with input.txt with TCP")
+    print("2. Download file from server with input.txt with UDP")
+
+    # Processing users' choice
+    print()
+    print("Choose your option: ", end="")
+
+    return int(input())
+
+
+# -----------------------UTILS FUNCTIONS FOR MAIN-----------------------#
+
 
 def get_file_size(filename):
     """
     Get the size of the file in bytes.
     """
-    return os.path.getsize(filename)
+    file_path = os.path.join("./files_received/", filename)
+    return os.path.getsize(file_path)
 
 
 def check_file_exist(filename):

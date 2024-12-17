@@ -1,8 +1,4 @@
-import sys
-import os
-# Thêm đường dẫn tới thư mục gốc (src)
-sys.path.append(os.path.abspath(os.path.join('..')))
-import utils
+import utils 
 
 import socket
 import threading

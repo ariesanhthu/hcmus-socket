@@ -1,11 +1,7 @@
-import sys
-import os
-# Thêm đường dẫn tới thư mục gốc (src)
-sys.path.append(os.path.abspath(os.path.join('..')))
 import utils
-
 import socket
 import threading
+
 
 class SocketServer:
     HOST = socket.gethostbyname(socket.gethostname())
@@ -14,12 +10,8 @@ class SocketServer:
     PIPES = 4
     RESOURCE_PATH = "./resources/"
     MESSAGE_SIZE = 256
-    
-    CODE = {
-        "LIST": "LIST",
-        "OPEN": "OPEN",
-        "GET": "GET"
-    }
+
+    CODE = {"LIST": "LIST", "OPEN": "OPEN", "GET": "GET"}
 
     def __init__(self) -> None:
         print("[STATUS] Initializing the server...")
@@ -46,7 +38,7 @@ class SocketServer:
                     print(f"[STATUS] Server listening on {self.HOST}:{self.PORT}")
                     master, addr = server_socket.accept()
                     # Auto disconnect after 10 seconds
-                    master.settimeout(10)
+                    # master.settimeout(10)
                     print("[STATUS] Connected by", addr)
 
                     client_thread = threading.Thread(
@@ -60,14 +52,14 @@ class SocketServer:
 
     def handle_client_connection(self, master, addr):
         pipes_list = []
-        
+
         while True:
             data = master.recv(self.MESSAGE_SIZE)
             data = data.decode()
             data = data.strip()
             message = data.split("\r\n")[0]
-            
-            if message == self.CODE["LIST"]:    
+
+            if message == self.CODE["LIST"]:
                 # Send a list of available resources to client
                 self.send_resources_list(master)
             elif message == self.CODE["OPEN"]:
@@ -81,8 +73,10 @@ class SocketServer:
 
     def send_resources_list(self, master):
         list_file = utils.list_all_file_in_directory(self.RESOURCE_PATH)
+
         # Fill list file with space to make it match standard size
         list_file = utils.standardize_str(str(list_file), self.MESSAGE_SIZE)
+
         master.sendall(f"{list_file}".encode())
 
     def create_pipes(self, master):
@@ -119,7 +113,7 @@ class SocketServer:
 
         t = threading.Thread(target=self.handle_send_chunk, args=(message, pipes_list))
         t.start()
-        t.join()            
+        t.join()
 
     def handle_send_chunk(self, message, pipes_list):
         filename, file_size, start_offset, end_offset = eval(message.strip())

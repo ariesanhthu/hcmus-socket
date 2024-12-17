@@ -83,7 +83,7 @@ class SocketClient:
         list_file = eval(list_file)  # Convert to list
 
         # HÀM NÀY ĐỂ TỰ ĐỘNG SAVE CÁC INPUT TỪ SERVER -> LƯU VÀO FILE INPUT CỦA CLIENT
-        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx TRẦN HẢI ĐỨC BỊ KHÙNG
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         # Save the list to input.txt
         # self.save_resource_list_to_file(list_file) # chỉ dùng để test
         # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -104,44 +104,46 @@ class SocketClient:
         received_files = []
 
         # Read the input file
-        needed_files = self.parse_input_file(filename, received_files)
-        cur_index = 0
+        # needed_files = self.parse_input_file(filename, received_files)
 
-        while len(received_files) < len(needed_files):
+        # while len(received_files) < len(needed_files):
+        while True:
             # Reupdate list of files needed to download
             # KIỂM TRA LẠI CÁC FILE TRONG INPUT
             needed_files = self.parse_input_file(filename, received_files)
 
-            if len(received_files) >= len(needed_files):
-                break
+            cur_index = 0
+            while cur_index < len(needed_files):
+                # file_info = needed_files[cur_index]
+                # Check if the file is already downloaded
+                if utils.check_file_exist(needed_files[cur_index]["name"]):
+                    print(utils.setTextColor("green"), end="")
+                    print(
+                        f"[STATUS] File {needed_files[cur_index]["name"]} has already been downloaded"
+                    )
+                    print(utils.setTextColor("white"), end="")
+                    received_files.append(needed_files[cur_index]["name"])
+                    cur_index += 1
+                    continue
 
-            # Check if the file is already downloaded
-            if utils.check_file_exist(needed_files[cur_index]["name"]):
-                print(utils.setTextColor("green"), end="")
-                print(
-                    f"[STATUS] File {needed_files[cur_index]["name"]} has already been downloaded"
-                )
-                print(utils.setTextColor("white"), end="")
-                received_files.append(needed_files[cur_index]["name"])
-                cur_index += 1
                 time.sleep(5)
-                continue
 
-            # Receive the chunk from the server
-            self.receive_chunk(needed_files, cur_index, main_socket, socket_list)
+                # Receive the chunk from the server
+                self.receive_chunk(needed_files, cur_index, main_socket, socket_list)
 
-            # Check file size to ensure file is transferred successfully
-            cur_index += self.check_file_integrity(
-                cur_index, needed_files, received_files
-            )
-
+                # Check file size to ensure file is transferred successfully
+                cur_index += self.check_file_integrity(
+                    cur_index, needed_files, received_files
+                )
+            # Chờ 5 giây trước khi quét lại file input.txt
+            print("[INFO] Checking for updates in input.txt...")
             time.sleep(5)
 
-        # 5s check và đọc lại file input 1 lần
-        time.sleep(5)
+            # 5s check và đọc lại file input 1 lần
+            # time.sleep(5)
 
-        # Confirmation
-        isCompleted = self.confirm_download(needed_files, received_files)
+            # Confirmation
+            # isCompleted = self.confirm_download(needed_files, received_files)
 
     def receive_resource_list(self, main_socket):
         """
@@ -197,10 +199,14 @@ class SocketClient:
         cur_file_size = needed_files[cur_index]["size_bytes"]
 
         self.CHUNK_SIZE = math.ceil(cur_file_size / self.PIPES)
+        
         number_of_chunk = math.ceil(cur_file_size / self.CHUNK_SIZE)
 
         threads_list = []
 
+        # ============================================================
+        #                XỬ LÝ GỬI CÁC CHUNK DỮ LIỆU
+        # ============================================================
         # lặp qua các chunk để gửi các request đến server và đăng ký id
         for chunk in range(number_of_chunk):
 
@@ -209,7 +215,6 @@ class SocketClient:
 
             if end_offset > cur_file_size - 1:
                 end_offset = cur_file_size - 1
-
             # ------------------------- Send message to server -------------------------
             """
                 Cấu trúc message:
@@ -308,12 +313,13 @@ class SocketClient:
                 f"Downloading file {filename} part {id} .... {int(utils.count_files_with_prefix(received_dir, filename) / self.PIPES * 100)}%"
             )
 
-            # print(f"[RESPOND] Received chunk {message.strip()}")
+            print(f"[RESPOND] Received chunk {message.strip()}")
 
             # ---------------------------------------------------------------------
             # Thêm các tệp vào folder disc
             with open(os.path.join(received_dir, f"{filename}_{id}"), "wb") as file:
                 file.write(chunk_data)
+
             # ---------------------------------------------------------------------
 
     def check_file_integrity(self, cur_index, needed_files, received_files):
@@ -339,6 +345,10 @@ class SocketClient:
             )
             print(
                 f"[DETAIL] Received file size: {utils.get_file_size(needed_files[cur_index]['name'])} bytes"
+            )
+            print(utils.setTextColor("red"), end="")
+            print(
+                f"id: {cur_index} bytes"
             )
             print(utils.setTextColor("white"), end="")
             return 0
