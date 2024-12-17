@@ -1,3 +1,3 @@
-elon.png 1074346
-trump.png 468407
-cat.png 394930
+elon.png
+cat.png
+pepe.png

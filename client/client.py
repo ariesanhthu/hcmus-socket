@@ -124,6 +124,7 @@ def main():
             s1.connect_to_server("input.txt")
         except KeyboardInterrupt:
             print("\n[INFO] Client terminated by user (Ctrl + C).")
+            
 
     # Press Ctrl + C to exit
     def handle_exit(signal, frame):
