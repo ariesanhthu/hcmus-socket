@@ -70,6 +70,7 @@ import utils
 import clientCore
 import signal
 import clientCoreUDP
+import clientUDP
 
 
 def main():
@@ -109,6 +110,7 @@ def main():
     # Select choice from menu
     if choice == 0:
         print("Exiting...")
+
     if choice == 1:
         print("Downloading file from server with input.txt with TCP")
         c1 = clientCore.SocketClient()
@@ -116,14 +118,18 @@ def main():
         # download_dir = input("Enter download path: ")
         # c1.connect_to_server(filename, download_dir, server_ip)
         c1.connect_to_server(filename)
+
     if choice == 2:
         print("Downloading file from server with input.txt with UDP")
-        s1 = clientCoreUDP.SocketClientUDP()
+        
+        client = clientUDP.SocketClientUDP()
+        client.start()
 
-        try:
-            s1.connect_to_server("input.txt")
-        except KeyboardInterrupt:
-            print("\n[INFO] Client terminated by user (Ctrl + C).")
+        # try:
+        #     s1.connect_to_server("input.txt")
+        # except KeyboardInterrupt:
+        #     print("\n[INFO] Client terminated by user (Ctrl + C).")
+            
 
     # Press Ctrl + C to exit
     def handle_exit(signal, frame):

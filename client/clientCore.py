@@ -51,18 +51,21 @@ class SocketClient:
         main_socket.close()
 
     # =============================================== nhớ check những cái đã tồn tại ===============================================
-    def save_resource_list_to_file(self, list_file, file_path="input.txt"):
+    def save_resource_list_to_file(self, list_file, file_path="receiveList.txt"):
         """
         Ghi danh sách tài nguyên vào tệp tin.
         - list_file: danh sách tài nguyên (list).
-        - file_path: đường dẫn tệp tin (mặc định là 'input.txt').
+        - file_path: đường dẫn tệp tin (mặc định là 'receiveList.txt').
         """
+        # remove previous file
+        
+
         try:
             with open(file_path, "w") as file:
                 for file_entry in list_file:
 
                     file_name, file_size = file_entry
-
+                    file_name = file_name.split('/')[-1] # only save name of file
                     file.write(f"{file_name} {file_size}\n")
 
             print(utils.setTextColor("green"), end="")
@@ -85,7 +88,7 @@ class SocketClient:
         # HÀM NÀY ĐỂ TỰ ĐỘNG SAVE CÁC INPUT TỪ SERVER -> LƯU VÀO FILE INPUT CỦA CLIENT
         # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         # Save the list to input.txt
-        # self.save_resource_list_to_file(list_file) # chỉ dùng để test
+        self.save_resource_list_to_file(list_file) # chỉ dùng để test
         # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         print(utils.setTextColor("green"), end="")
@@ -118,8 +121,9 @@ class SocketClient:
                 # Check if the file is already downloaded
                 if utils.check_file_exist(needed_files[cur_index]["name"]):
                     print(utils.setTextColor("green"), end="")
+                    str_file = needed_files[cur_index]["name"]
                     print(
-                        f"[STATUS] File {needed_files[cur_index]["name"]} has already been downloaded"
+                        f"[STATUS] File {str_file} has already been downloaded"
                     )
                     print(utils.setTextColor("white"), end="")
                     received_files.append(needed_files[cur_index]["name"])
@@ -159,10 +163,10 @@ class SocketClient:
         main_socket.sendall(message.encode())
 
         # ---------- NHẬN CÁC FILE TRẢ VỀ ----------
-        list_file = main_socket.recv(self.MESSAGE_SIZE).decode()
+        list_file = main_socket.recv(self.MESSAGE_SIZE * 2).decode()
 
         print(utils.setTextColor("white"), end="")
-
+        print(list_file)
         return list_file
 
     def create_pipes(self, main_socket):
@@ -382,24 +386,27 @@ class SocketClient:
                 for line in file:
                     line = line.strip()
                     if line:
-                        # Split the line into components
-                        parts = line.split()
-                        if len(parts) == 2:
-                            name, size = parts
+                        with open("receiveList.txt", "r+") as recvfile:
+                            for recvline in recvfile:
+                                if recvline:
+                                    parts = recvline.split()
+                                    # Split the line into components
+                                    if len(parts) == 2:
+                                        name, size = parts
 
-                            # Parse size in bytes
-                            size_bytes = int(size)
+                                        # Parse size in bytes
+                                        size_bytes = int(size)
 
-                            # Check if the file has already been received
-                            if name not in received_files:
-                                # Append the data as a dictionary
-                                data.append(
-                                    {
-                                        "name": name,
-                                        "size": size,
-                                        "size_bytes": size_bytes,
-                                    }
-                                )
+                                        # Check if the file has already been received
+                                        if name not in received_files and name == line:
+                                            # Append the data as a dictionary
+                                            data.append(
+                                                {
+                                                    "name": name,
+                                                    "size": size,
+                                                    "size_bytes": size_bytes,
+                                                }
+                                            )
         except Exception as e:
             print(utils.setTextColor("red"), end="")
             print(f"[ERROR] An error occurred: {e}")
