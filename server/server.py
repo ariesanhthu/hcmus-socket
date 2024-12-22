@@ -4,6 +4,8 @@ import signal
 import sys
 import threading
 
+import t1
+
 # Global flag to signal threads to stop
 # Ctrl+C signal handler
 # -------------------------------------------------------------------------------
@@ -39,7 +41,7 @@ def tcp_server_task():
 
 
 def udp_server_task():
-    server = serverUDP.SocketServerUDP()
+    server = t1.SocketServerUDP()
     try:
         server.start()  # Run UDP server
     except Exception as e:

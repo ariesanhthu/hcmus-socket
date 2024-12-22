@@ -96,16 +96,25 @@ class SocketClientUDP:
         # Gửi thông điệp LIST để nhận về danh sách file
         client_socket.sendto(f"{self.CODE['LIST']}".encode(), server_address)
         try:
+            # Nhận thông báo từ server
             response, _ = client_socket.recvfrom(self.BUFFER_SIZE)
             files = response.decode().split("|", 1)[1]
+
+            # Nếu thông báo là no-file thì trả về null
             if files == "NO_FILES":
                 print("No files available on server.")
                 return []
+            
+            # in ra tất cả các file trong server nhận được
             file_list = files.split(",")
             print("Available files on server:")
             for file in file_list:
                 print(f"- {file}")
+            
+            # return
             return file_list
+        
+        # Nếu chờ lệnh response quả timeout thì trả về null
         except socket.timeout:
             print("Error: Server not responding.")
             return []
@@ -125,9 +134,7 @@ class SocketClientUDP:
 
     def check_file(self, client_socket, server_address, file_name):
         # gửi thông điệp check file
-        client_socket.sendto(
-            f"{self.CODE['CHECK']}|{file_name}".encode(), server_address
-        )
+        client_socket.sendto(f"{self.CODE['CHECK']}|{file_name}".encode(), server_address)
         try:
             response, _ = client_socket.recvfrom(self.BUFFER_SIZE)
             if response.decode() == "EXISTS":
@@ -176,9 +183,9 @@ class SocketClientUDP:
 
     def download_file_parallel(self, client_socket, file_name, server_address):
         # Gửi thông điệp SIZE để nhận về list size
-        client_socket.sendto(
-            f"{self.CODE['SIZE']}|{file_name}".encode(), server_address
-        )
+        client_socket.sendto(f"{self.CODE['SIZE']}|{file_name}".encode(), server_address)
+
+        # Nhận size
         size_data, _ = client_socket.recvfrom(self.BUFFER_SIZE)
         if not size_data.startswith(b"SIZE|"):
             print("Error: Unable to fetch file size.")
@@ -189,13 +196,22 @@ class SocketClientUDP:
         print(f"Starting download for {file_name}. Total size: {total_size} bytes")
 
         # Tính toán size cho 1 luồng
+        # gồm 4 luồng để tải 1 file  
         chunk_size = (total_size // self.PIPE) + 1
+        # Kho lưu tiểu trình
         threads = []
+        # Kết quả 
         results = [None] * self.PIPE
 
         # Progress bars cho mỗi luồng
+        # total = chunk_size
         progress_bars = [
-            tqdm(total=chunk_size, desc=f"Pipe {i+1}", unit="B", unit_scale=True)
+            
+            tqdm(total=chunk_size, 
+                desc=f"Pipe {i+1}", 
+                unit="B", 
+                unit_scale=True)
+            
             for i in range(self.PIPE)
         ]
 
@@ -212,58 +228,80 @@ class SocketClientUDP:
 
             nonlocal progress_bars
 
+            # Mở tiểu trình
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                # thiết lập thời gian chở message
                 sock.settimeout(self.TIMEOUT)
+                # Các chunk được tải xong lưu vào một list
                 downloaded_data = []
+                # tính toán seg num, mỗi chunk tương ứng với 1 seg num
                 seq_num = start_byte // (self.BUFFER_SIZE - 20)
 
+                # bắt đầu gửi byte
                 while start_byte < end_byte:
                     try:
+                        # gửi GET đến server bao gồm file name và seq num
                         sock.sendto(
                             f"{self.CODE['GET']}|{file_name}|{seq_num}".encode(),
                             server_address,
                         )
+
+                        # Nhận data
                         data, _ = sock.recvfrom(self.BUFFER_SIZE)
 
+                        # Nếu data là EOF thì break
                         if data == b"EOF":
                             break
 
+                        # Lấy seq num, checksum, chunk từ data
                         seq_received, checksum, chunk = data.split(b":", 2)
-                        if int(seq_received) == seq_num and self.calculate_checksum(
-                            chunk
-                        ) == int(checksum):
+
+                        # Kiểm tra check sum, seq num nếu thỏa thì tiếp tục tải file
+                        if int(seq_received) == seq_num and self.calculate_checksum(chunk) == int(checksum):
+                            # Tải xong thi thêm vào list
                             downloaded_data.append(chunk)
+                            # cập nhật tiểu trình
                             progress_bars[thread_id].update(len(chunk))
+                            # tăng byte lên len(chunk) để chuẩn bị cho đợt tải tiếp theo
                             start_byte += len(chunk)
+                            # tăng seq num lên 1
                             seq_num += 1
                         else:
+                            # Kiểm tra mất gói tin thì gửi lệnh resend đến server
                             sock.sendto(
                                 f"{self.CODE['RESEND']}|{file_name}|{seq_num}".encode(),
                                 server_address,
                             )
                     except socket.timeout:
+                        # Nếu quá thời gian timout mà vẫn chưa nhận được data thì gửi lệnh resend đến server
                         sock.sendto(
                             f"{self.CODE['RESEND']}|{file_name}|{seq_num}".encode(),
                             server_address,
                         )
 
+                # result thứ i sẽ có data là download chunk size        
                 results[thread_id] = b"".join(downloaded_data)
 
         # Tạo 4 luồng thread
         for i in range(self.PIPE):
+            # tính toán end byte, start byte
             start_byte = i * chunk_size
             end_byte = min(start_byte + chunk_size, total_size)
-            thread = threading.Thread(
-                target=download_chunk, args=(i, start_byte, end_byte)
-            )
+
+            # một luồng bằng 1 download_chunk
+            thread = threading.Thread(target=download_chunk, args=(i, start_byte, end_byte))
+
+            # thêm luồng vào danh sách luồng 
             threads.append(thread)
+
+            # chạy 4 luồng 
             thread.start()
 
         # active 4 luồng
         for thread in threads:
             thread.join()
 
-        # kết hợp 4 luồng thành 1 file hoàn chỉnh
+        # kết hợp kết quả từ 4 luồng thành 1 file hoàn chỉnh
         with open(os.path.join(self.DOWNLOAD_FOLDER, file_name), "wb") as f:
             for chunk_data in results:
                 if chunk_data:
@@ -283,41 +321,55 @@ class SocketClientUDP:
     def start(self):
         try:
             while True:
+
+                # Nhận các tên file cần tải về qua input.txt
                 file_list = self.get_input_file_list()
+
+                # nếu không nhận được file nào, thì chờ 5s đọc lại input.txt
                 if not file_list:
                     print("No files to download. Waiting 5 seconds...")
                     time.sleep(5)
                     continue
 
+                # Bắt đầu client
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client_socket:
+                    # thiết lập thời gian chờ nhận 1 message từ server
                     client_socket.settimeout(self.TIMEOUT)
+
+                    # Địa chỉ server = HOST lấy từ __init__
                     server_address = (self.HOST, self.PORT)
 
-                    client_socket.sendto(
-                        f"{self.CODE['CONNECT']}".encode(), server_address
-                    )
+                    # Không cần bind mà send trực tiếp đến server
+                    # dữ liệu phải encode dưới dạng byte để gửi
+                    client_socket.sendto(f"{self.CODE['CONNECT']}".encode(), server_address)
+
                     try:
+                        # Nhận thông báo từ server
                         response, _ = client_socket.recvfrom(self.BUFFER_SIZE)
 
+                        # Kiểm tra kết nối
                         if response.decode() == "WELCOME":
 
+                            # Lấy danh sách file có thể tải từ server
                             list_files = self.list_files(client_socket, server_address)
                             print("Number of files on server:", len(list_files))
 
                             print("Connected to server.")
 
                             for file_name in file_list:
-                                # nếu chưa tồn tại thì mởi tải file
+                                # nếu chưa tồn tại trong client thì mởi tải file
                                 if self.check_file_downloaded(file_name) == False:
-                                    self.download_file_parallel(
-                                        client_socket, file_name, server_address
-                                    )
+                                    # tiến hành gửi 1 file
+                                    self.download_file_parallel(client_socket, file_name, server_address)
 
+                    # Nếu thời gian nhận tin nhắn vượt timeout hay không nhận được lệnh WELCOME thì báo không kết nối server được
                     except socket.timeout:
                         print("Error: Server timeout.")
 
                 print("All files processed. Rechecking input in 5 seconds...")
+
                 time.sleep(5)
+
         except KeyboardInterrupt:
             print("Client stopped by user (Ctrl + C).")
             return
@@ -332,3 +384,73 @@ if __name__ == "__main__":
     host = "127.0.0.1"
     client = SocketClientUDP(HOST=host)
     client.start()
+
+# Tại sao là BUFFER_SIZE - 20
+
+"""
+    Tại sao là BUFFER_SIZE - 20?
+    Trong giao thức UDP, mỗi gói tin đều có phần dữ liệu tiêu đề (header). 
+    Header của UDP dài 8 byte, nhưng thường có thêm dữ liệu từ các tầng thấp hơn (ví dụ: IP header dài 20 byte).
+    Việc trừ 20 đảm bảo dữ liệu payload thực tế không vượt quá giới hạn tối đa của gói tin 
+    (thường là 65,535 byte, bao gồm cả header). Do đó, sử dụng BUFFER_SIZE - 20 để chắc chắn phần dữ liệu vừa với gói tin.
+"""
+
+# Tại sao lại tín toán offset như vậy 
+
+"""
+    Start Byte: Điểm bắt đầu của đoạn (i * chunk_size).
+    End Byte: Điểm kết thúc được tính bằng kích thước tệp hoặc giới hạn của đoạn (start_byte + chunk_size).
+"""
+
+# Hiện tại vấn đề resend đang gặp là gì 
+
+# Tại sao khi thay đổi BUFFER size thì tốc độ tải khác nhau
+"""
+Khi BUFFER_SIZE lớn:
+Số lượng gói tin cần gửi ít hơn, giảm overhead từ header và độ trễ mạng, giúp tốc độ tải nhanh hơn.
+Khi BUFFER_SIZE nhỏ:
+Số lượng gói tin tăng lên, tăng overhead và giảm hiệu quả truyền tải.
+"""
+
+# MAX buffer là bao nhiêu
+"""
+MAX BUFFER_SIZE là bao nhiêu?
+Giới hạn lý thuyết của UDP là 65,507 byte (65,535 - 8 byte cho UDP header - 20 byte cho IP header).
+"""
+
+# Tại sao lại đọc cả chunk size ???
+
+
+# cơ chế checksum là gì 
+"""
+Checksum là một hàm toán học dùng để kiểm tra tính toàn vẹn của dữ liệu. 
+"""
+
+
+# học lại cơ chế gửi seq num, kiểm tra lại resend
+"""
+Sequence Number (seq_num):
+
+Xác định vị trí của đoạn dữ liệu hiện tại trong tệp.
+Tăng giá trị sau mỗi đoạn nhận thành công để đảm bảo dữ liệu được truyền tải đúng thứ tự.
+"""
+
+
+# nonlocal progress bar
+"""
+Từ khóa nonlocal trong Python cho phép một hàm lồng nhau (nested function) thay đổi biến trong phạm vi bao quanh nó.
+Trong mã này, 
+progress_bars được khai báo bên ngoài hàm download_chunk nhưng được cập nhật trong hàm để theo dõi tiến độ của mỗi luồng.
+"""
+
+#Làm thế nào để cải thiện tốc độ tải file trong trường hợp mạng không ổn định?
+"""
+Tăng Buffer size
+điều chỉnh số luồng 
+"""
+
+# Khi client gửi lệnh LIST, server phản hồi dữ liệu theo định dạng nào?
+"""
+LIST|file1,file2,file3,...,fileN
+"""
+

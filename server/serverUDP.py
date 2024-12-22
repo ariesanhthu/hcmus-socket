@@ -82,24 +82,35 @@ class SocketServerUDP:
             client_address: Địa chỉ client.
     ============================================================ """
     def send_file_chunk(self, server_socket, file_name, seq_num, client_address):
+        # mở file 
         file_path = os.path.join(self.RESOURCE_PATH, file_name)
         if not os.path.exists(file_path):
             server_socket.sendto(b"ERROR|File not found.", client_address)
             return
 
+        # tính toán size chunk
         chunk_size = self.BUFFER_SIZE - 20  
+
+        # lấy offset
         offset = seq_num * chunk_size
 
         with open(file_path, "rb") as f:
+            # dịch chuyển với offset
             f.seek(offset)
+
+            # lấy chunk
             chunk = f.read(chunk_size)
 
             if not chunk:
                 server_socket.sendto(b"EOF", client_address)
                 return
 
+            # tính toán checksum chunk
             checksum = self.calculate_checksum(chunk)
+
             packet = f"{seq_num}:{checksum}:".encode() + chunk
+
+            # gửi thông tin đến server bao gồm seq num và checksum
             server_socket.sendto(packet, client_address)
 
      # *********************************************************************************************** # 

@@ -1,2 +1,5 @@
-elon.png
+input.png
+a.png
 cat.png
+100MB.zip
+10MB.zip

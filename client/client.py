@@ -4,6 +4,8 @@ import clientCore
 import signal
 import clientUDP
 
+import t1 
+
 
 def main():
     # -----------------SETTINGS UP CONSOLE-----------------#
@@ -54,7 +56,7 @@ def main():
     if choice == 2:
         print("Downloading file from server with input.txt with UDP")
         server_ip = input("Enter server IP: ")
-        client = clientUDP.SocketClientUDP(HOST=server_ip)
+        client = t1.SocketClientUDP(HOST=server_ip)
         client.start()
 
         # try:
